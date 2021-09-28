@@ -1,0 +1,76 @@
+----------data preparation---------
+# check the data 
+data <- read.csv(file = "/Users/young.zheng/downloads/Machine Learning Class/Project/GermanData.csv")
+str(data)
+summary(data)
+table(data$Creditability)
+
+# missing value
+sum(is.na(data))
+
+# data type: change chr to factor 
+data[sapply(data, is.character)] <- 
+  lapply(data[sapply(data, is.character)], as.factor)
+
+data$Creditability <- replace(data$Creditability, data$Creditability == 2 , 0)
+data$Creditability <- as.factor(data$Creditability)
+
+# check outlier of Age 
+boxplot(data$Age)
+
+#final check data type and so on 
+str(data)
+
+#split training set and test set
+install.packages('caTools') 
+library(caTools)   #select package
+set.seed(12)
+split = sample.split(data$Creditability, SplitRatio = 0.8)
+train <- subset(data, split == TRUE)
+test <- subset(data, split == FALSE)
+
+#run the logistic model
+log1 <- glm(Creditability ~ .,data = data, family=binomial())
+summary(log1)
+
+log2 <- glm(Creditability ~ Checking.Account+Duration+Credit.History+
+              Purpose+Credit.Amount+Saving.Account+Employment+Installment.Rate+
+              Status.Sex+Debtors+Property+Installment.Plan+Housing+Foreign.Worker,
+            data = data, family=binomial())
+summary(log2)
+
+log3 <- glm(Creditability ~ Checking.Account+Duration+Credit.History+
+              Purpose+Credit.Amount+Saving.Account+Installment.Rate+
+              Status.Sex+Debtors+Installment.Plan+Housing+Foreign.Worker,
+            data = data, family=binomial())
+summary(log3)
+
+anova(log2, log3, test="Chisq")
+anova(log2, log3, test="LRT")
+
+
+#prediction - train
+p1 <- predict(log3, train, type = "response")
+head(p1)
+
+pred1 <- ifelse(p1 > 0.5 , 1 , 0)
+tab1 <- table(pred1, train$Creditability)
+sum(diag(tab1))/sum(tab1)
+
+#prediction - test
+p2 <- predict(log3, test, type = "response")
+pred2 <- ifelse(p2 > 0.5 , 1 , 0)
+tab2 <- table(pred2, train$Creditability)
+sum(diag(tab2))/sum(tab2)
+
+#goodness of fit 
+with(log3, pchisq(null.deviance - deviance, df.null-df.residual, lower.tail = F))
+
+install.packages('pROC')
+library(pROC)
+
+preoverall <- predict(log3, data)
+par(pty="s")
+roc(data$Creditability, preoverall,plot= TRUE,legacy.axes=TRUE,percent=TRUE,
+    col="blue",lwd=3, print.auc=TRUE)
+
